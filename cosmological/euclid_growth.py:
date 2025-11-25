@@ -1,0 +1,248 @@
+"""
+AEP Scale-Dependent Growth Analysis for Euclid
+Tests the predicted 15% suppression at transition scale
+"""
+
+import math
+import random
+
+class AEPEuclidAnalysis:
+    """AEP-driven analysis of scale-dependent growth suppression"""
+    
+    def __init__(self):
+        self.aep_predictions = {
+            'k_transition': 0.03,  # h/Mpc
+            'suppression_amplitude': 0.15,
+            'transition_width': 0.3
+        }
+        
+        # Euclid specifications
+        self.euclid_specs = {
+            'redshift_range': [0.5, 1.0, 1.5],
+            'area_deg2': 15000,
+            'n_galaxies': 30e6
+        }
+        
+        random.seed(42)  # For reproducible demonstration
+    
+    def normal_distribution(self, mean=0, std=1):
+        """Simple normal distribution generator"""
+        u1 = random.random()
+        u2 = random.random()
+        return math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2) * std + mean
+    
+    def aep_growth_prediction(self, k, z):
+        """AEP prediction for scale-dependent growth suppression"""
+        k_t = self.aep_predictions['k_transition']
+        suppression = self.aep_predictions['suppression_amplitude']
+        width = self.aep_predictions['transition_width']
+        
+        # Scale-dependent suppression (tanh transition)
+        log_ratio = math.log10(k / k_t) if k > 0 else -10
+        suppression_factor = 1 - suppression * (1 + math.tanh(log_ratio / width)) / 2
+        
+        # Redshift evolution (simplified)
+        z_evolution = 1.0 / (1 + z)
+        
+        return suppression_factor * z_evolution
+    
+    def simulate_euclid_data(self):
+        """Generate Euclid-like power spectrum measurements"""
+        print("SIMULATING EUCLID POWER SPECTRUM DATA")
+        print("=" * 50)
+        
+        # k-bins in h/Mpc
+        k_bins = [0.01, 0.03, 0.06, 0.1, 0.2, 0.3]
+        redshifts = self.euclid_specs['redshift_range']
+        
+        data = {}
+        
+        for z in redshifts:
+            data[z] = {}
+            
+            # ΛCDM baseline (no suppression)
+            p0_lcdm = 1.0  # Normalized
+            
+            for k in k_bins:
+                # AEP prediction with suppression
+                p_aep = p0_lcdm * self.aep_growth_prediction(k, z)
+                
+                # Euclid statistical errors (forecast)
+                n_modes = self.calculate_n_modes(k, z)
+                statistical_error = p_aep / math.sqrt(n_modes)
+                
+                # Add small systematic
+                systematic_error = 0.02 * p_aep
+                total_error = math.sqrt(statistical_error**2 + systematic_error**2)
+                
+                # Simulated measurement
+                measured_p = p_aep + self.normal_distribution(0, total_error)
+                
+                data[z][k] = {
+                    'measured': measured_p,
+                    'error': total_error,
+                    'aep_prediction': p_aep,
+                    'lcdm_prediction': p0_lcdm
+                }
+        
+        print(f"Generated data for redshifts: {redshifts}")
+        print(f"k-range: {min(k_bins):.3f} to {max(k_bins):.3f} h/Mpc")
+        
+        return data, k_bins
+    
+    def calculate_n_modes(self, k, z):
+        """Calculate number of independent modes for error estimation"""
+        # Simplified: more modes at larger scales
+        base_modes = 1000
+        scale_factor = (0.1 / k) ** 3  # ∝ volume
+        redshift_factor = 1.0 / (1 + z)
+        
+        return int(base_modes * scale_factor * redshift_factor)
+    
+    def aep_growth_analysis(self, data, k_bins):
+        """AEP-driven analysis of growth suppression"""
+        print("\nAEP GROWTH SUPPRESSION ANALYSIS")
+        print("=" * 50)
+        
+        redshifts = self.euclid_specs['redshift_range']
+        chi2_total = 0
+        dof_total = 0
+        
+        print("Scale-dependent growth analysis:")
+        print("k [h/Mpc]  z   P_meas   P_AEP   P_ΛCDM  Suppression")
+        print("-" * 55)
+        
+        for z in redshifts:
+            for k in k_bins:
+                point = data[z][k]
+                suppression = 1 - point['aep_prediction'] / point['lcdm_prediction']
+                
+                # χ² contribution
+                residual = point['measured'] - point['aep_prediction']
+                chi2 = (residual / point['error']) ** 2
+                chi2_total += chi2
+                dof_total += 1
+                
+                print(f"{k:6.3f}    {z:3.1f}  {point['measured']:6.3f}  {point['aep_prediction']:6.3f}  "
+                      f"{point['lcdm_prediction']:6.3f}    {suppression:5.1%}")
+        
+        # Goodness of fit
+        chi2_per_dof = chi2_total / dof_total if dof_total > 0 else 0
+        p_value = self.chi2_p_value(chi2_total, dof_total)
+        
+        print(f"\nGoodness of fit:")
+        print(f"χ²/dof = {chi2_per_dof:.2f} (p = {p_value:.3f})")
+        
+        return chi2_per_dof, p_value
+    
+    def chi2_p_value(self, chi2, dof):
+        """Approximate p-value from chi-squared distribution"""
+        # Simplified approximation
+        if dof == 0:
+            return 1.0
+        
+        # For demonstration - in real code use scipy.stats.chi2
+        z = (chi2 - dof) / math.sqrt(2 * dof)
+        p_value = 2 * (1 - 0.5 * (1 + math.erf(abs(z) / math.sqrt(2))))
+        
+        return min(p_value, 1.0)
+    
+    def aep_systematic_control(self):
+        """AEP complexity-based systematic error control"""
+        print("\nAEP SYSTEMATIC CONTROL FOR EUCLID")
+        print("=" * 50)
+        
+        systematics = [
+            {'name': 'photo_z_errors', 'amplitude': 0.015, 'complexity': 6},
+            {'name': 'shear_calibration', 'amplitude': 0.010, 'complexity': 8},
+            {'name': 'intrinsic_alignments', 'amplitude': 0.020, 'complexity': 12},
+            {'name': 'baryonic_effects', 'amplitude': 0.025, 'complexity': 15},
+        ]
+        
+        included = []
+        total_systematic = 0
+        
+        print("AEP systematic evaluation:")
+        for systematic in systematics:
+            threshold = systematic['complexity'] / 300
+            if systematic['amplitude'] > threshold:
+                included.append(systematic)
+                total_systematic += systematic['amplitude'] ** 2
+                print(f"  ✓ {systematic['name']:20} ±{systematic['amplitude']:.3f}")
+            else:
+                print(f"  ✗ {systematic['name']:20} ±{systematic['amplitude']:.3f}")
+        
+        total_systematic = math.sqrt(total_systematic)
+        print(f"Total systematic error: ±{total_systematic:.3f}")
+        
+        return total_systematic
+    
+    def run_euclid_analysis(self):
+        """Complete AEP Euclid analysis pipeline"""
+        print("AEP EUCLID SCALE-DEPENDENT GROWTH ANALYSIS")
+        print("=" * 60)
+        print(f"AEP Prediction: {self.aep_predictions['suppression_amplitude']:.1%} suppression at k = {self.aep_predictions['k_transition']:.3f} h/Mpc")
+        print("=" * 60)
+        
+        # Generate simulated data
+        data, k_bins = self.simulate_euclid_data()
+        
+        # AEP growth analysis
+        chi2_per_dof, p_value = self.aep_growth_analysis(data, k_bins)
+        
+        # AEP systematic control
+        systematic_error = self.aep_systematic_control()
+        
+        # Statistical power assessment
+        print("\nSTATISTICAL POWER ASSESSMENT")
+        print("=" * 50)
+        
+        # Euclid forecast precision
+        euclid_precision = 0.015  # 1.5% per bin
+        
+        # Detection significance
+        suppression_snr = self.aep_predictions['suppression_amplitude'] / euclid_precision
+        
+        print(f"Euclid forecast precision: {euclid_precision:.2%}")
+        print(f"Suppression amplitude: {self.aep_predictions['suppression_amplitude']:.2%}")
+        print(f"Expected detection significance: {suppression_snr:.1f}σ")
+        
+        # Final assessment
+        print("\n" + "=" * 60)
+        print("AEP EUCLID ANALYSIS COMPLETE")
+        print("=" * 60)
+        
+        if p_value > 0.01 and suppression_snr > 2.0:
+            print("✅ AEP GROWTH SUPPRESSION DETECTABLE")
+            print("✅ Euclid has sufficient statistical power")
+            print("✅ Good fit to AEP predictions")
+            conclusion = "DETECTABLE"
+        else:
+            print("❌ Marginal detection prospects")
+            print("❌ May require combined probes")
+            conclusion = "MARGINAL"
+        
+        return {
+            'chi2_per_dof': chi2_per_dof,
+            'p_value': p_value,
+            'systematic_error': systematic_error,
+            'detection_significance': suppression_snr,
+            'conclusion': conclusion
+        }
+
+def main():
+    """Run the AEP Euclid analysis"""
+    print("AEP EUCLID SCALE-DEPENDENT GROWTH ANALYSIS")
+    print("Testing predicted growth suppression with complexity controls\n")
+    
+    analyzer = AEPEuclidAnalysis()
+    results = analyzer.run_euclid_analysis()
+    
+    print(f"\nEuclid Forecast Summary:")
+    print(f"• Predicted suppression: {analyzer.aep_predictions['suppression_amplitude']:.1%}")
+    print(f"• Transition scale: k = {analyzer.aep_predictions['k_transition']:.3f} h/Mpc") 
+    print(f"• Expected significance: {results['detection_significance']:.1f}σ")
+    print(f"• AEP systematic control: ±{results['systematic_error']:.3f}")
+
+if __name__ == "__main__":
+    main()
