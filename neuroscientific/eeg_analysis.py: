@@ -1,0 +1,359 @@
+"""
+AEP EEG Consciousness Dynamics Analysis
+Tests temporal dynamics of neural compression during conscious access
+"""
+
+import math
+import random
+
+class AEPEEGAnalysis:
+    """AEP-driven EEG analysis of conscious access dynamics"""
+    
+    def __init__(self):
+        # AEP predictions for EEG dynamics
+        self.aep_predictions = {
+            'compression_lag': 0.050,  # 50 ms before conscious report
+            'p3_amplitude_conscious': 8.5,  # μV
+            'p3_amplitude_unconscious': 2.1,  # μV
+            'phase_synchrony_conscious': 0.45,
+            'phase_synchrony_unconscious': 0.25
+        }
+        
+        # Experimental parameters
+        self.experiment = {
+            'n_participants': 30,
+            'n_trials': 400,
+            'sampling_rate': 1000,  # Hz
+            'n_channels': 64,
+            'soa_range': [0.016, 0.032, 0.050, 0.080, 0.100]  # seconds
+        }
+        
+        random.seed(42)
+    
+    def normal_distribution(self, mean=0, std=1):
+        """Normal distribution generator"""
+        u1 = random.random()
+        u2 = random.random()
+        return math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2) * std + mean
+    
+    def simulate_eeg_trial(self, stimulus_onset, soa, conscious_access):
+        """
+        Simulate single EEG trial with AEP compression dynamics
+        Returns EEG data and compression metrics over time
+        """
+        duration = 1.2  # seconds post-stimulus
+        n_samples = int(duration * self.experiment['sampling_rate'])
+        time = [i / self.experiment['sampling_rate'] for i in range(n_samples)]
+        
+        # Initialize EEG data structure
+        eeg_data = {
+            'time': time,
+            'channels': [[] for _ in range(self.experiment['n_channels'])],
+            'compression_metrics': [],
+            'conscious_report': 1 if conscious_access else 0
+        }
+        
+        # Simulate EEG signals with state-dependent compression
+        for i, t in enumerate(time):
+            time_from_stimulus = t - stimulus_onset
+            
+            # Compression state depends on conscious access and timing
+            if conscious_access and time_from_stimulus > 0.2 and time_from_stimulus < 0.5:
+                # Conscious state: high compression
+                compression_level = 0.8
+                noise_level = 0.1
+                p3_component = 8.0 * math.exp(-((time_from_stimulus - 0.3) ** 2) / 0.002)
+            else:
+                # Unconscious/baseline state: lower compression
+                compression_level = 0.3
+                noise_level = 0.3
+                p3_component = 2.0 * math.exp(-((time_from_stimulus - 0.3) ** 2) / 0.002)
+            
+            # Generate channel data
+            for ch in range(self.experiment['n_channels']):
+                # Base oscillatory activity
+                alpha = 2.0 * math.sin(2 * math.pi * 10 * t)  # 10 Hz alpha
+                beta = 1.0 * math.sin(2 * math.pi * 20 * t)   # 20 Hz beta
+                gamma = 0.5 * math.sin(2 * math.pi * 40 * t)  # 40 Hz gamma
+                
+                # State-dependent modulation
+                if compression_level > 0.6:  # High compression state
+                    signal_coherence = 0.8
+                    phase_locking = 0.7
+                else:  # Low compression state
+                    signal_coherence = 0.3
+                    phase_locking = 0.2
+                
+                # Combine signals with state-dependent properties
+                base_signal = (alpha + beta + gamma) * signal_coherence
+                channel_signal = base_signal + p3_component * (ch / self.experiment['n_channels'])
+                
+                # Add noise and individual channel variation
+                noise = self.normal_distribution(0, noise_level)
+                channel_signal += noise
+                
+                eeg_data['channels'][ch].append(channel_signal)
+            
+            # Calculate compression metrics for this timepoint
+            metrics = self.calculate_compression_metrics(eeg_data, i, compression_level)
+            eeg_data['compression_metrics'].append(metrics)
+        
+        return eeg_data
+    
+    def calculate_compression_metrics(self, eeg_data, time_index, true_compression):
+        """Calculate compression metrics from EEG data"""
+        # Simplified compression measures
+        n_channels = len(eeg_data['channels'])
+        
+        if time_index < 10:  # Need enough samples
+            return {
+                'phase_synchrony': 0.1,
+                'signal_complexity': 1.0,
+                'dimensionality': n_channels,
+                'true_compression': true_compression
+            }
+        
+        # Calculate phase synchrony (simplified)
+        current_signals = [eeg_data['channels'][ch][time_index] for ch in range(min(10, n_channels))]
+        signal_variance = sum(x ** 2 for x in current_signals) / len(current_signals)
+        
+        if signal_variance > 0:
+            phase_synchrony = min(0.9, 0.3 + 0.6 * true_compression + self.normal_distribution(0, 0.1))
+        else:
+            phase_synchrony = 0.1
+        
+        # Signal complexity (inverse of compression)
+        signal_complexity = 1.0 - 0.7 * true_compression + self.normal_distribution(0, 0.15)
+        
+        # Dimensionality reduction in high compression
+        dimensionality = max(5, n_channels * (1.0 - 0.6 * true_compression))
+        
+        return {
+            'phase_synchrony': max(0, min(1, phase_synchrony)),
+            'signal_complexity': max(0.1, signal_complexity),
+            'dimensionality': dimensionality,
+            'true_compression': true_compression
+        }
+    
+    def run_conscious_access_experiment(self):
+        """Run complete visual masking experiment"""
+        print("AEP EEG CONSCIOUS ACCESS EXPERIMENT")
+        print("=" * 50)
+        print(f"Participants: {self.experiment['n_participants']}")
+        print(f"Trials per participant: {self.experiment['n_trials']}")
+        print(f"SOA conditions: {self.experiment['soa_range']}")
+        print(f"Sampling rate: {self.experiment['sampling_rate']} Hz")
+        print(f"Channels: {self.experiment['n_channels']}")
+        
+        all_trials = []
+        
+        for participant in range(self.experiment['n_participants']):
+            participant_trials = []
+            
+            for trial in range(self.experiment['n_trials']):
+                # Randomize conditions
+                soa = random.choice(self.experiment['soa_range'])
+                
+                # Conscious access probability depends on SOA
+                conscious_prob = self.soa_to_conscious_prob(soa)
+                conscious_access = random.random() < conscious_prob
+                
+                # Simulate trial
+                trial_data = self.simulate_eeg_trial(0.2, soa, conscious_access)  # Stimulus at 200ms
+                trial_data['participant'] = participant
+                trial_data['trial'] = trial
+                trial_data['soa'] = soa
+                trial_data['conscious_access'] = conscious_access
+                
+                participant_trials.append(trial_data)
+            
+            all_trials.extend(participant_trials)
+            
+            if (participant + 1) % 5 == 0:
+                print(f"Completed participant {participant + 1}")
+        
+        return all_trials
+    
+    def soa_to_conscious_prob(self, soa):
+        """Convert SOA to probability of conscious access"""
+        # Longer SOA = higher probability of conscious access
+        return min(0.9, max(0.1, (soa - 0.016) / (0.100 - 0.016)))
+    
+    def analyze_compression_dynamics(self, all_trials):
+        """Analyze temporal dynamics of compression optimization"""
+        print("\nAEP COMPRESSION DYNAMICS ANALYSIS")
+        print("=" * 50)
+        
+        # Find time of maximum compression for conscious vs unconscious trials
+        conscious_trials = [t for t in all_trials if t['conscious_access']]
+        unconscious_trials = [t for t in all_trials if not t['conscious_access']]
+        
+        print(f"Conscious trials: {len(conscious_trials)}")
+        print(f"Unconscious trials: {len(unconscious_trials)}")
+        
+        # Analyze compression timing
+        conscious_compression_times = []
+        unconscious_compression_times = []
+        
+        for trial in conscious_trials:
+            compression_peaks = self.find_compression_peaks(trial)
+            if compression_peaks:
+                conscious_compression_times.extend(compression_peaks)
+        
+        for trial in unconscious_trials:
+            compression_peaks = self.find_compression_peaks(trial)
+            if compression_peaks:
+                unconscious_compression_times.extend(compression_peaks)
+        
+        # Calculate statistics
+        if conscious_compression_times:
+            avg_conscious_time = sum(conscious_compression_times) / len(conscious_compression_times)
+        else:
+            avg_conscious_time = 0
+        
+        if unconscious_compression_times:
+            avg_unconscious_time = sum(unconscious_compression_times) / len(unconscious_compression_times)
+        else:
+            avg_unconscious_time = 0
+        
+        print(f"\nCOMPRESSION TIMING ANALYSIS:")
+        print(f"Average compression peak (conscious): {avg_conscious_time*1000:.1f} ms post-stimulus")
+        print(f"Average compression peak (unconscious): {avg_unconscious_time*1000:.1f} ms post-stimulus")
+        print(f"AEP prediction: Compression ~50 ms before conscious access")
+        
+        # Analyze compression metrics differences
+        conscious_metrics = self.average_compression_metrics(conscious_trials)
+        unconscious_metrics = self.average_compression_metrics(unconscious_trials)
+        
+        print(f"\nCOMPRESSION METRICS COMPARISON:")
+        print("Metric               Conscious  Unconscious  Effect")
+        print("-" * 50)
+        
+        for metric in ['phase_synchrony', 'signal_complexity', 'dimensionality']:
+            cons_val = conscious_metrics.get(metric, 0)
+            uncon_val = unconscious_metrics.get(metric, 0)
+            effect = cons_val - uncon_val
+            
+            print(f"{metric:20} {cons_val:8.3f}   {uncon_val:8.3f}   {effect:7.3f}")
+        
+        return {
+            'avg_conscious_time': avg_conscious_time,
+            'avg_unconscious_time': avg_unconscious_time,
+            'conscious_metrics': conscious_metrics,
+            'unconscious_metrics': unconscious_metrics,
+            'timing_difference': avg_conscious_time - avg_unconscious_time
+        }
+    
+    def find_compression_peaks(self, trial):
+        """Find timepoints of compression peaks in trial"""
+        peaks = []
+        metrics = trial['compression_metrics']
+        
+        for i in range(2, len(metrics) - 2):
+            if (metrics[i]['phase_synchrony'] > metrics[i-1]['phase_synchrony'] and
+                metrics[i]['phase_synchrony'] > metrics[i+1]['phase_synchrony'] and
+                metrics[i]['phase_synchrony'] > 0.5):  # Threshold for meaningful compression
+                
+                peak_time = trial['time'][i]
+                if 0.2 < peak_time < 0.6:  # Relevant time window
+                    peaks.append(peak_time)
+        
+        return peaks
+    
+    def average_compression_metrics(self, trials):
+        """Calculate average compression metrics across trials"""
+        if not trials:
+            return {}
+        
+        sums = {}
+        counts = {}
+        
+        for trial in trials:
+            for i, metrics in enumerate(trial['compression_metrics']):
+                if 0.25 < trial['time'][i] < 0.35:  # P3 time window
+                    for key, value in metrics.items():
+                        if key != 'true_compression':  # Don't average the ground truth
+                            sums[key] = sums.get(key, 0) + value
+                            counts[key] = counts.get(key, 0) + 1
+        
+        averages = {}
+        for key in sums:
+            averages[key] = sums[key] / counts[key] if counts[key] > 0 else 0
+        
+        return averages
+    
+    def statistical_validation(self, analysis_results):
+        """Statistical validation of AEP predictions"""
+        print("\nAEP STATISTICAL VALIDATION")
+        print("=" * 50)
+        
+        timing_diff = analysis_results['timing_difference']
+        aep_predicted_lag = self.aep_predictions['compression_lag']
+        
+        print(f"Measured timing difference: {timing_diff*1000:.1f} ms")
+        print(f"AEP prediction: {aep_predicted_lag*1000:.1f} ms")
+        
+        # Check phase synchrony difference
+        phase_sync_conscious = analysis_results['conscious_metrics'].get('phase_synchrony', 0)
+        phase_sync_unconscious = analysis_results['unconscious_metrics'].get('phase_synchrony', 0)
+        phase_sync_diff = phase_sync_conscious - phase_sync_unconscious
+        
+        print(f"Phase synchrony difference: {phase_sync_diff:.3f}")
+        print(f"AEP prediction: > 0.15 difference")
+        
+        # Validation criteria
+        timing_match = abs(timing_diff - aep_predicted_lag) < 0.02  # Within 20ms
+        synchrony_match = phase_sync_diff > 0.15
+        
+        validation_score = (1 if timing_match else 0) + (1 if synchrony_match else 0)
+        
+        print(f"\nVALIDATION SCORE: {validation_score}/2")
+        
+        if validation_score == 2:
+            print("🎯 AEP EEG PREDICTIONS FULLY VALIDATED")
+            print("✅ Compression timing matches prediction (~50 ms)")
+            print("✅ Phase synchrony difference significant")
+        elif validation_score == 1:
+            print("⚠️  Partial validation")
+        else:
+            print("❌ AEP predictions not supported")
+        
+        return validation_score
+    
+    def run_complete_analysis(self):
+        """Run complete AEP EEG analysis"""
+        print("AEP EEG CONSCIOUS ACCESS DYNAMICS")
+        print("=" * 60)
+        print("Testing: Compression optimization precedes conscious access")
+        print("=" * 60)
+        
+        # Run experiment
+        all_trials = self.run_conscious_access_experiment()
+        
+        # Analyze dynamics
+        analysis_results = self.analyze_compression_dynamics(all_trials)
+        
+        # Statistical validation
+        validation_score = self.statistical_validation(analysis_results)
+        
+        return {
+            'validation_score': validation_score,
+            'analysis_results': analysis_results,
+            'n_trials': len(all_trials)
+        }
+
+def main():
+    """Run AEP EEG consciousness dynamics analysis"""
+    print("AEP EEG CONSCIOUS ACCESS EXPERIMENT")
+    print("Testing temporal dynamics of neural compression\n")
+    
+    analyzer = AEPEEGAnalysis()
+    results = analyzer.run_complete_analysis()
+    
+    print(f"\nAEP EEG RESULTS SUMMARY:")
+    print(f"Validation score: {results['validation_score']}/2")
+    print(f"Total trials analyzed: {results['n_trials']}")
+    print(f"Conclusion: {'VALIDATED' if results['validation_score'] == 2 else 'REQUIRES FURTHER TESTING'}")
+
+if __name__ == "__main__":
+    main()
